@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>测试基于swoole的webSocket</title>
+</head>
+<style>
+    *{
+        margin: 0;
+        padding: 0;
+    }
+    #info{
+        border: none;
+        border-bottom: 1px solid cornflowerblue;
+        width: 50%;
+        height: 25px;
+    }
+    .input_name{
+        border-bottom: solid 1px red;
+        border-top-width: 0;
+        border-right-width: 0;
+        border-left-width: 0;
+        width: 50%;
+        height: 5%;
+        margin-top: 20%;
+    }
+    #box{
+        margin-top: 3%;
+        width: 960px;
+        height: 800px;
+        background-color: #96dd3b;
+        overflow:hidden;!important;
+    }
+    #mask_box{
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        position: fixed;
+        background-color: #fff;
+        z-index: 10;
+    }
+    #max_box{
+        display: none;
+    }
+    #uname_btn{
+        background-color: #96dd3b;
+        border: 0;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin-top: 10px;
+    }
+    #btn{
+          background-color: #96dd3b;
+          border: 0;
+          color: white;
+          padding: 12px 28px;
+          text-align: center;
+          text-decoration: none;
+          display: inline-block;
+          font-size: 16px;
+          margin-top: 8px;
+      }
+    .say{
+        margin: 35px;
+    }
+</style>
+<body>
+<center>
+    <h1>测试基于swoole的webSocket     在线人数 <span id="tatil_all">1</span></h1>
+
+    <div id="mask_box">
+        <table>
+            <tr>
+               昵称： <input type="text" name="username" class="input_name" placeholder="请输入昵称">
+                <br/>
+                 <button id="uname_btn">进入</button>
+
+            </tr>
+        </table>
+    </div>
+
+
+    <div id="max_box">
+    <div>
+        <input type="text" name="info" id="info" placeholder="请输入发送的消息">
+        <button id="btn">发送</button>
+    </div>
+
+    <div id="box">
+
+    </div>
+    </div>
+</center>
+</body>
+<script type="text/javascript" src="../../js/jquery.js"></script>
+<script type="text/javascript">
+    var uname = 0;
+
+    var wsServer = 'ws://139.199.23.60:9503';
+    var websocket = new WebSocket(wsServer);
+    websocket.onopen = function (evt) {
+        console.log("Connected to WebSocket server.");
+    };
+
+    websocket.onclose = function (evt) {
+        console.log("Disconnected");
+    };
+
+    websocket.onmessage = function (evt) {
+        console.log('Retrieved data from server: ' + evt.data);
+
+        var evtInfo =  JSON.parse(evt.data);
+        if(evtInfo.content){
+            var _this = $('#box');
+            if(is_self(evtInfo)){
+                //自己发的言
+                _this.append("<div  class='say'><p style='text-align: right'>自己说："+evtInfo.content+"</p></div>");
+            }else{
+                if(evtInfo.content.indexOf('加入') == -1){
+                    _this.append("<div  class='say'><p style='text-align: left'>"+evtInfo.from_client_name+evtInfo.content+"</p></div>");
+                }else{
+                    //欢迎语
+                    _this.append("<div  class='say'><p style='text-align: center;font-family: '微软雅黑 Light';'>"+evtInfo.content+"</p></div>");
+                }
+
+            }
+        }
+
+        //在线人数统计
+        if(evtInfo.total_people){
+            $('#tatil_all').html('<font color="red">'+evtInfo.total_people+'</font>');
+        }
+
+        //首次登陆获取token 并写入localStorage
+        var storage=window.sessionStorage;
+        if(evtInfo.token_init){
+            storage.setItem('token_'+evtInfo.token_init,evtInfo.token_init);
+        }
+    };
+
+    websocket.onerror = function (evt, e) {
+        console.log('Error occured: ' + evt.data);
+    };
+
+    //点击发送请求
+    $('#btn').click(function () {
+        var val = $('#info').val();
+
+        websocket.send('{"content":"'+val+'"}');
+    });
+
+    //输入昵称
+    $('#uname_btn').click(function () {
+        uname = $('.input_name').val();
+        var val_uname = '#username#'+uname;
+        websocket.send('{"content":"'+val_uname+'"}');
+        $('#mask_box').hide();
+        $('#max_box').show();
+        $('#box').empty();
+    });
+
+    //判断是否是自己发言
+    function is_self(evtInfo) {
+        //判断是自己说话
+        if(evtInfo.token && evtInfo.content){
+            var storage=window.sessionStorage;
+            var token = storage.getItem('token_'+evtInfo.token);
+            if(evtInfo.token == token){
+                return true;
+            }else {
+                return false;
+            }
+        }else {
+            return false;
+        }
+    }
+</script>
+</html>
